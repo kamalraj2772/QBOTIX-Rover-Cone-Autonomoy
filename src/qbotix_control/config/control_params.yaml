@@ -1,0 +1,24 @@
+# QBotix Rover Control Configuration
+
+skid_steer_controller:
+  ros__parameters:
+    wheel_radius: 0.10        # meters
+    wheel_separation: 0.53    # meters (track width)
+    max_rpm: 150.0            # Maximum wheel RPM
+    max_linear_vel: 0.8       # m/s - SAFER max speed
+    max_angular_vel: 1.0      # rad/s - SAFER turn rate
+
+velocity_smoother:
+  ros__parameters:
+    max_linear_accel: 0.5     # m/s^2 - SMOOTH acceleration
+    max_angular_accel: 1.0    # rad/s^2 - SMOOTH turn acceleration
+    max_linear_vel: 0.8       # m/s - SAFER max speed
+    max_angular_vel: 1.0      # rad/s - SAFER turn rate
+    smoothing_rate: 50.0      # Hz
+
+motor_interface:
+  ros__parameters:
+    driver_type: 'serial'
+    serial_port: '/dev/ttyACM0'  # Teensy uses ACM port
+    baud_rate: 115200
+    motor_ids: [1, 2, 3, 4, 5, 6]

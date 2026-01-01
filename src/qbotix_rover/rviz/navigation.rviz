@@ -1,0 +1,211 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    # TF Frames
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        map:
+          Value: true
+        odom:
+          Value: true
+        base_link:
+          Value: true
+        base_footprint:
+          Value: true
+        zed_camera_link:
+          Value: true
+        zed_left_camera_optical_frame:
+          Value: true
+
+    # Robot Model
+    - Class: rviz_default_plugins/RobotModel
+      Enabled: true
+      Name: RobotModel
+      Description Topic:
+        Value: /robot_description
+      Visual Enabled: true
+      Collision Enabled: false
+
+    # Global Costmap
+    - Class: rviz_default_plugins/Map
+      Enabled: true
+      Name: Global Costmap
+      Topic:
+        Value: /global_costmap/costmap
+      Color Scheme: costmap
+      Alpha: 0.7
+
+    # Local Costmap
+    - Class: rviz_default_plugins/Map
+      Enabled: true
+      Name: Local Costmap
+      Topic:
+        Value: /local_costmap/costmap
+      Color Scheme: costmap
+      Alpha: 0.5
+
+    # Global Path (Nav2 planned path)
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Global Path
+      Topic:
+        Value: /plan
+      Color: 0; 255; 0  # Green
+      Line Style: Lines
+      Line Width: 0.05
+      Alpha: 1.0
+
+    # Local Path (controller trajectory)
+    - Class: rviz_default_plugins/Path
+      Enabled: true
+      Name: Local Path
+      Topic:
+        Value: /local_plan
+      Color: 255; 255; 0  # Yellow
+      Line Style: Lines
+      Line Width: 0.03
+      Alpha: 1.0
+
+    # Goal Pose
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: Goal Pose
+      Topic:
+        Value: /goal_pose
+      Color: 255; 0; 0  # Red
+      Shape: Arrow
+      Alpha: 1.0
+      Shaft Length: 0.5
+      Head Length: 0.2
+
+    # Cone Markers
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: Cone Markers
+      Topic:
+        Value: /cone_markers
+
+    # Cone Pose in Map Frame
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: Cone Pose
+      Topic:
+        Value: /cone_pose_map
+      Color: 255; 165; 0  # Orange
+      Shape: Arrow
+      Alpha: 1.0
+
+    # Point Cloud from ZED
+    - Class: rviz_default_plugins/PointCloud2
+      Enabled: true
+      Name: Point Cloud
+      Topic:
+        Value: /zed/zed_node/point_cloud/cloud_registered
+      Size (m): 0.02
+      Color Transformer: RGB8
+      Decay Time: 0
+
+    # RGB Image from ZED (cone detection overlay)
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: RGB Image
+      Topic:
+        Value: /cone_detection/image
+        Reliability: Reliable
+        History Policy: Keep Last
+        Depth: 1
+      Max Value: 1.0
+      Min Value: 0.0
+      Normalize Range: true
+
+    # ZED Raw Image
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: Cone Detection
+      Topic:
+        Value: /zed/zed_node/rgb/color/rect/image
+        Reliability: Reliable
+        History Policy: Keep Last
+        Depth: 1
+      Max Value: 1.0
+      Min Value: 0.0
+      Normalize Range: true
+
+    # ZED Pose
+    - Class: rviz_default_plugins/Pose
+      Enabled: true
+      Name: ZED Pose
+      Topic:
+        Value: /zed/zed_node/pose
+      Color: 0; 255; 255
+      Shape: Axes
+      Alpha: 1.0
+
+    # Odometry
+    - Class: rviz_default_plugins/Odometry
+      Enabled: true
+      Name: Odometry
+      Topic:
+        Value: /odom
+      Keep: 100
+      Position Tolerance: 0.1
+      Angle Tolerance: 0.1
+      Covariance:
+        Value: false
+
+    # Grid
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Cell Size: 1
+      Line Style:
+        Value: Lines
+      Color: 160; 160; 160
+      Plane: XY
+      Plane Cell Count: 20
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Topic: /clicked_point
+
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 10
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Pitch: 0.5
+      Yaw: 0.5
+      Name: Current View
+Window Geometry:
+  Width: 1920
+  Height: 1080
+  X: 0
+  Y: 0

@@ -1,0 +1,76 @@
+# ZED2i Camera Configuration for QBotix Rover
+# Frame names must match URDF definitions exactly
+# Optimized for autonomous navigation with cone detection
+
+/**:
+  ros__parameters:
+    use_sim_time: false
+    
+    general:
+      camera_model: 'zed2i'
+      camera_name: 'zed'
+      grab_resolution: 'HD720'  # Good balance of performance and quality
+      grab_frame_rate: 30
+      gpu_id: 0
+      pub_resolution: 'CUSTOM'
+      pub_downscale_factor: 2.0
+      pub_frame_rate: 30.0
+      
+    video:
+      brightness: 4
+      contrast: 4
+      saturation: 4
+      sharpness: 4
+      gamma: 8
+      auto_exposure_gain: true
+      auto_whitebalance: true
+      publish_rgb: true
+      
+    depth:
+      depth_mode: 'NEURAL_LIGHT'  # Good quality with reasonable performance
+      depth_stabilization: 30
+      min_depth: 0.3  # Avoid rover body
+      max_depth: 15.0  # Reasonable range for navigation
+      openni_depth_mode: false
+      point_cloud_freq: 15.0
+      depth_confidence: 95
+      depth_texture_conf: 100
+      publish_depth_map: true
+      publish_point_cloud: true
+      
+    # CRITICAL: Disable ALL TF publishing from ZED wrapper
+    # The URDF/robot_state_publisher handles all camera TFs
+    pos_tracking:
+      pos_tracking_enabled: true
+      pos_tracking_mode: 'GEN_2'
+      publish_tf: false  # URDF handles TF
+      publish_map_tf: false  # tf_broadcaster handles this
+      imu_fusion: true
+      area_memory: true
+      floor_alignment: false
+      set_gravity_as_origin: true
+      depth_min_range: 0.3
+      two_d_mode: false
+      map_frame: 'map'
+      odometry_frame: 'odom'
+      publish_odom_pose: true
+      
+    sensors:
+      publish_imu_tf: false  # URDF handles IMU TF
+      sensors_image_sync: true
+      sensors_pub_rate: 100.0
+      publish_imu: true
+      
+    mapping:
+      mapping_enabled: false
+      
+    object_detection:
+      od_enabled: false
+      
+    body_tracking:
+      bt_enabled: false
+      
+    region_of_interest:
+      automatic_roi: false  # Manual control for rover
+      depth_far_threshold_meters: 5.0
+      image_height_ratio_cutoff: 0.6  # Ignore upper sky region

@@ -1,0 +1,29 @@
+# QBotix Perception Configuration
+
+cone_detector:
+  ros__parameters:
+    model_path: '/home/qbotixrover/Documents/small.pt'
+    confidence_threshold: 0.5
+    image_topic: '/zed/zed_node/rgb/color/rect/image'
+    depth_topic: '/zed/zed_node/depth/depth_registered'
+    camera_info_topic: '/zed/zed_node/rgb/color/rect/camera_info'
+    detection_rate: 10.0
+    cone_class_id: 0
+    max_detection_distance: 10.0
+    min_detection_distance: 0.3
+
+target_publisher:
+  ros__parameters:
+    goal_offset_distance: 0.5
+    min_goal_update_distance: 0.3
+    auto_navigate: true
+    smooth_goal: true
+    smoothing_window: 5
+
+depth_processor:
+  ros__parameters:
+    depth_topic: '/zed/zed_node/depth/depth_registered'
+    min_obstacle_height: 0.15
+    max_obstacle_height: 2.0
+    obstacle_threshold: 0.5
+    ground_clearance: 0.1
