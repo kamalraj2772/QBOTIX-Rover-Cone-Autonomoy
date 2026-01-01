@@ -27,6 +27,7 @@ install(PROGRAMS
   scripts/cone_detector.py
   scripts/depth_processor.py
   scripts/target_publisher.py
+  scripts/cone_registration_controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

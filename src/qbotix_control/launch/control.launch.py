@@ -64,7 +64,7 @@ def generate_launch_description():
         }]
     )
     
-    # Velocity smoother (optional - Nav2 has its own smoother)
+    # Velocity smoother - connects Nav2 cmd_vel_nav to cmd_vel
     velocity_smoother = Node(
         package='qbotix_control',
         executable='velocity_smoother.py',
@@ -87,6 +87,7 @@ def generate_launch_description():
         declare_wheel_radius,
         declare_wheel_separation,
         declare_max_rpm,
-        skid_steer_controller,
-        motor_interface,
+        velocity_smoother,  # First: smooth cmd_vel_nav -> cmd_vel
+        skid_steer_controller,  # Then: convert cmd_vel -> wheel RPMs
+        motor_interface,  # Finally: send RPMs to Teensy
     ])

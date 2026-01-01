@@ -4,11 +4,18 @@ Target Publisher Node - With Persistent Cone Registration
 Transforms cone detections from camera frame to map frame and publishes navigation goals.
 
 FEATURES:
-- Registers cone position when first detected
-- Continues navigation even when cone is temporarily hidden (occluded)
-- Avoids dynamic obstacles while heading to registered cone position
-- Updates registered position when cone becomes visible again
-- Configurable timeout for cone registration expiry
+- Registers cone position when first detected (FIXED POSITION)
+- Continues navigation even when cone is temporarily hidden (occluded by obstacles)
+- Avoids dynamic/static obstacles while heading to registered cone position
+- LOCK mode: Ignores new detections, uses only registered position
+- RESET (Ctrl+Q): Clears registration and reads new cone position
+- Configurable timeout for cone registration expiry (can be disabled)
+
+WORKFLOW:
+1. Cone detected → Position REGISTERED and FIXED
+2. Obstacle hides cone → Robot continues to REGISTERED position
+3. Press Ctrl+Q → Registration RESET, reads NEW cone position
+4. Navigation continues until goal reached
 """
 
 import rclpy
@@ -45,12 +52,14 @@ class TargetPublisher(Node):
         self.declare_parameter('smoothing_window', 5)
         
         # Cone registration parameters
-        self.declare_parameter('cone_registration_timeout', 30.0)  # Seconds before forgetting cone
+        self.declare_parameter('cone_registration_timeout', 300.0)  # 5 minutes - long timeout for persistent nav
         self.declare_parameter('cone_update_threshold', 0.3)       # Max distance to update registered position
         self.declare_parameter('goal_reached_threshold', 0.3)      # Distance to consider goal reached
         self.declare_parameter('goal_publish_rate', 2.0)           # Hz for publishing registered goal
         self.declare_parameter('goal_stability_threshold', 0.15)   # Min change to publish new goal (reduces fluctuation)
         self.declare_parameter('robot_moving_threshold', 0.05)     # Min robot movement to consider moving
+        self.declare_parameter('enable_position_lock', True)       # Lock position after first detection
+        self.declare_parameter('disable_timeout', True)            # Disable timeout - navigate forever until reset
         
         # Get parameters
         self.goal_offset = self.get_parameter('goal_offset_distance').value
@@ -64,17 +73,20 @@ class TargetPublisher(Node):
         self.goal_publish_rate = self.get_parameter('goal_publish_rate').value
         self.goal_stability_threshold = self.get_parameter('goal_stability_threshold').value
         self.robot_moving_threshold = self.get_parameter('robot_moving_threshold').value
+        self.enable_position_lock = self.get_parameter('enable_position_lock').value
+        self.disable_timeout = self.get_parameter('disable_timeout').value
         
         # ============================================================
         # CONE REGISTRATION STATE
         # ============================================================
-        self.registered_cone = None          # (x, y) in map frame
+        self.registered_cone = None          # (x, y) in map frame - FIXED POSITION
         self.registered_goal = None          # (x, y, yaw) - goal position
         self.cone_first_seen_time = None     # When cone was first registered
         self.cone_last_seen_time = None      # Last time cone was visible
         self.cone_confidence = 0.0           # Confidence in cone position (0-1)
         self.cone_detection_count = 0        # Number of detections
         self.is_cone_visible = False         # Currently visible?
+        self.position_locked = False         # Position is locked - ignore new detections
         
         # Navigation state
         self.navigation_active = False
@@ -135,6 +147,14 @@ class TargetPublisher(Node):
             10
         )
         
+        # Lock position command
+        self.lock_sub = self.create_subscription(
+            Bool,
+            '/lock_cone_position',
+            self.lock_callback,
+            10
+        )
+        
         # ============================================================
         # PUBLISHERS
         # ============================================================
@@ -173,9 +193,12 @@ class TargetPublisher(Node):
         
         self.get_logger().info('='*50)
         self.get_logger().info('Target Publisher Node initialized')
-        self.get_logger().info('  - Cone registration timeout: {:.1f}s'.format(self.cone_timeout))
+        self.get_logger().info('  - Cone registration timeout: {:.1f}s (disabled={})'.format(
+            self.cone_timeout, self.disable_timeout))
         self.get_logger().info('  - Goal offset distance: {:.2f}m'.format(self.goal_offset))
+        self.get_logger().info('  - Position lock on first detection: {}'.format(self.enable_position_lock))
         self.get_logger().info('  - Persistent navigation: ENABLED')
+        self.get_logger().info('  - Press Ctrl+Q to RESET cone position')
         self.get_logger().info('='*50)
     
     # ================================================================
@@ -215,10 +238,18 @@ class TargetPublisher(Node):
         """Reset cone registration"""
         if msg.data:
             self.reset_cone_registration()
-            self.get_logger().info('🔄 Cone registration reset by command')
+            self.get_logger().info('🔄 Cone registration RESET by Ctrl+Q - Waiting for new detection')
+    
+    def lock_callback(self, msg):
+        """Lock/unlock cone position"""
+        self.position_locked = msg.data
+        if self.position_locked:
+            self.get_logger().info('🔒 Cone position LOCKED - Ignoring new detections')
+        else:
+            self.get_logger().info('🔓 Cone position UNLOCKED - Accepting detections')
     
     def reset_cone_registration(self):
-        """Clear all cone registration data"""
+        """Clear all cone registration data - ready for new detection"""
         self.registered_cone = None
         self.registered_goal = None
         self.cone_first_seen_time = None
@@ -228,6 +259,7 @@ class TargetPublisher(Node):
         self.is_cone_visible = False
         self.navigation_active = False
         self.goal_reached = False
+        self.position_locked = False  # Unlock when reset
         self.goal_history.clear()
     
     # ================================================================
@@ -236,9 +268,15 @@ class TargetPublisher(Node):
     
     def cone_pose_callback(self, msg):
         """
-        Process cone detection and update registration
+        Process cone detection and update registration.
+        If position is LOCKED, ignore new detections (navigate to fixed position).
         """
         if not self.auto_navigate:
+            return
+        
+        # If position is locked, ignore new detections
+        if self.position_locked and self.registered_cone is not None:
+            self.get_logger().debug('Position locked - ignoring new detection')
             return
         
         if self.current_pose is None:
@@ -277,25 +315,31 @@ class TargetPublisher(Node):
             # ============================================================
             
             if self.registered_cone is None:
-                # FIRST DETECTION - Register the cone
+                # FIRST DETECTION - Register the cone and LOCK position
                 self.register_cone(cone_x, cone_y)
-                self.get_logger().info(f'📍 NEW CONE REGISTERED at ({cone_x:.2f}, {cone_y:.2f})')
-            else:
-                # Check if this is the same cone or a new one
-                dist_to_registered = math.sqrt(
-                    (cone_x - self.registered_cone[0])**2 +
-                    (cone_y - self.registered_cone[1])**2
-                )
+                self.get_logger().info(f'📍 CONE REGISTERED at ({cone_x:.2f}, {cone_y:.2f}) - Position FIXED')
                 
-                if dist_to_registered < self.cone_update_threshold:
-                    # Same cone - update position with weighted average
-                    self.update_cone_position(cone_x, cone_y)
-                else:
-                    # Different cone or cone moved significantly
-                    self.get_logger().info(
-                        f'⚠️ Cone position changed significantly ({dist_to_registered:.2f}m). Updating registration.'
+                # Auto-lock position after first detection
+                if self.enable_position_lock:
+                    self.position_locked = True
+                    self.get_logger().info('🔒 Position AUTO-LOCKED (press Ctrl+Q to reset)')
+            else:
+                # Check if we should update (only if not locked)
+                if not self.position_locked:
+                    dist_to_registered = math.sqrt(
+                        (cone_x - self.registered_cone[0])**2 +
+                        (cone_y - self.registered_cone[1])**2
                     )
-                    self.register_cone(cone_x, cone_y)
+                    
+                    if dist_to_registered < self.cone_update_threshold:
+                        # Same cone - update position with weighted average
+                        self.update_cone_position(cone_x, cone_y)
+                    else:
+                        # Different cone or cone moved significantly
+                        self.get_logger().info(
+                            f'⚠️ Cone position changed significantly ({dist_to_registered:.2f}m). Updating registration.'
+                        )
+                        self.register_cone(cone_x, cone_y)
             
             # Increment detection count and confidence
             self.cone_detection_count += 1
@@ -342,6 +386,10 @@ class TargetPublisher(Node):
         
         if self.cone_last_seen_time is None:
             return False
+        
+        # If timeout is disabled, registration never expires
+        if self.disable_timeout:
+            return True
         
         # Check timeout
         time_since_seen = time.time() - self.cone_last_seen_time
@@ -485,9 +533,14 @@ class TargetPublisher(Node):
         status = String()
         
         if self.registered_cone is None:
-            status.data = "SEARCHING - No cone registered"
+            status.data = "SEARCHING - No cone registered (waiting for detection)"
         elif self.goal_reached:
             status.data = f"REACHED - Goal at ({self.registered_goal[0]:.2f}, {self.registered_goal[1]:.2f})"
+        elif self.position_locked and self.is_cone_visible:
+            status.data = f"LOCKED+VISIBLE - Cone at ({self.registered_cone[0]:.2f}, {self.registered_cone[1]:.2f})"
+        elif self.position_locked and not self.is_cone_visible:
+            time_hidden = time.time() - self.cone_last_seen_time if self.cone_last_seen_time else 0
+            status.data = f"LOCKED+HIDDEN - Navigating to fixed position ({self.registered_cone[0]:.2f}, {self.registered_cone[1]:.2f}) [hidden {time_hidden:.0f}s]"
         elif self.is_cone_visible:
             status.data = f"TRACKING - Cone visible at ({self.registered_cone[0]:.2f}, {self.registered_cone[1]:.2f})"
         else:

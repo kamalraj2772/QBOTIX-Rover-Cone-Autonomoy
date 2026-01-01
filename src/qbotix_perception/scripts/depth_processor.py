@@ -89,15 +89,23 @@ class DepthProcessor(Node):
             self.bridge = CvBridge()
         
         self.camera_info = None
+        self.depth_received = False
         
-        # QoS for sensor data - ZED uses BEST_EFFORT for depth
+        # QoS for ZED depth - ZED uses RELIABLE with depth 10
         sensor_qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
+            reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
-            depth=1
+            depth=10
         )
         
-        # Subscribers
+        # Reliable QoS for when BEST_EFFORT doesn't work
+        reliable_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+        
+        # Subscribers - use RELIABLE to match ZED publisher
         self.depth_sub = self.create_subscription(
             Image,
             self.depth_topic,
@@ -119,7 +127,11 @@ class DepthProcessor(Node):
             10
         )
         
+        # Timer to check if depth is being received
+        self.check_timer = self.create_timer(3.0, self.check_depth_reception)
+        
         self.get_logger().info('Depth Processor Node initialized')
+        self.get_logger().info(f'Subscribing to depth topic: {self.depth_topic}')
     
     def imgmsg_to_cv2(self, msg, encoding='passthrough'):
         """Convert ROS Image to CV2"""
@@ -139,8 +151,21 @@ class DepthProcessor(Node):
         """Store camera info"""
         self.camera_info = msg
     
+    def check_depth_reception(self):
+        """Check if depth data is being received"""
+        if not self.depth_received:
+            self.get_logger().warn(
+                f'No depth data received on {self.depth_topic}! '
+                'Check if ZED camera is running and topic QoS matches.',
+                throttle_duration_sec=5.0
+            )
+    
     def depth_callback(self, msg):
         """Process depth image for obstacles"""
+        if not self.depth_received:
+            self.get_logger().info('First depth image received!')
+            self.depth_received = True
+        
         try:
             # ZED2i publishes depth as 32FC1 (float32)
             depth_image = self.imgmsg_to_cv2(msg, '32FC1')

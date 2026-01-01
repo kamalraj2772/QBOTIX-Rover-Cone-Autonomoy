@@ -57,7 +57,10 @@ def generate_launch_description():
             'min_goal_update_distance': 0.3,
             'auto_navigate': True,
             'smooth_goal': True,
-            'smoothing_window': 5
+            'smoothing_window': 5,
+            'cone_registration_timeout': 300.0,  # 5 minutes
+            'enable_position_lock': True,        # Lock position after first detection
+            'disable_timeout': True              # Never expire - navigate until reset
         }]
     )
     
